@@ -1,11 +1,8 @@
-// если вы хотите использовать sass-переменные - удалите root
-
+// настройка sass переменных. Выносить сюда цвета, шрифты, ширину контейнера
 $font-family: "Poppins", sans-serif;
 $content-width: 1200px;
 $container-offset: 120px;
-$container-width: calc($content-width + ($container-offset * 2));
-
-// colors
+$container-width: calc($content-width + ($container-offset * 2)); // colors
 $light-color: #fff;
 $black-color: #222222;
 $red-color: #FF5437;

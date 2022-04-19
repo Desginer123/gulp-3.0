@@ -33,11 +33,18 @@ const webpackStream = require('webpack-stream');
 const plumber = require('gulp-plumber');
 const path = require('path');
 const zip = require('gulp-zip');
+const gulp = require('gulp');
+const gutil = require('gulp-util');
+const ftp = require('vinyl-ftp');
+const gulpDeployFtp = require('gulp-deploy-ftp');
+
 const rootFolder = path.basename(path.resolve());
+
 
 // paths
 const srcFolder = './src';
 const buildFolder = './app';
+const remoteProjectFolderName = '';
 const paths = {
   srcSvg: `${srcFolder}/img/svg/**.svg`,
   srcImgFolder: `${srcFolder}/img`,
@@ -49,6 +56,8 @@ const paths = {
   buildJsFolder: `${buildFolder}/js`,
   srcPartialsFolder: `${srcFolder}/partials`,
   resourcesFolder: `${srcFolder}/resources`,
+  remoteFolder: `/public_html/${remoteProjectFolderName}/`,
+
 };
 
 let isProd = false; // dev by default
@@ -57,6 +66,53 @@ const clean = () => {
   return del([buildFolder])
 }
 
+gulp.task('deploy', function() {
+
+  var conn = ftp.create({
+    host: '',
+    user: '',
+    password: '',
+    parallel: 10,
+    log: gutil.log
+  });
+
+  var globs = [
+    'app/**/*.*',
+  ];
+
+  // using base = '.' will transfer everything to /public_html correctly
+  // turn off buffering in gulp.src for best performance
+
+  return gulp.src(globs, {
+      base: 'app',
+      buffer: false
+    })
+    .pipe(conn.newer(paths.remoteFolder)) // only upload newer files
+    .pipe(conn.dest(paths.remoteFolder));
+
+});
+gulp.task('ftp-clean', function() {
+
+  var conn = ftp.create({
+    host: '',
+    user: '',
+    password: '',
+    parallel: 10,
+    log: gutil.log
+  });
+
+  var cleanGlobs = [
+    `${paths.remoteFolder}**`,
+  ];
+  return new Promise((resolve, reject) => {
+    conn.clean(cleanGlobs, `./${remoteProjectFolderName}/`, {
+        base: '/'
+      })
+      .on('error', reject)
+      .on('finish', resolve)
+  })
+
+});
 //svg sprite
 const svgSprites = () => {
   return src(paths.srcSvg)
@@ -69,7 +125,7 @@ const svgSprites = () => {
     )
     .pipe(
       cheerio({
-        run: function ($) {
+        run: function($) {
           $('[fill]').removeAttr('fill');
           $('[stroke]').removeAttr('stroke');
           $('[style]').removeAttr('style');
@@ -92,7 +148,9 @@ const svgSprites = () => {
 
 // scss styles
 const styles = () => {
-  return src(paths.srcScss, { sourcemaps: !isProd })
+  return src(paths.srcScss, {
+      sourcemaps: !isProd
+    })
     .pipe(plumber(
       notify.onError({
         title: "SCSS",
@@ -108,7 +166,9 @@ const styles = () => {
     .pipe(gulpif(isProd, cleanCSS({
       level: 2
     })))
-    .pipe(dest(paths.buildCssFolder, { sourcemaps: '.' }))
+    .pipe(dest(paths.buildCssFolder, {
+      sourcemaps: '.'
+    }))
     .pipe(browserSync.stream());
 };
 
@@ -163,7 +223,7 @@ const scripts = () => {
       },
       devtool: !isProd ? 'source-map' : false
     }))
-    .on('error', function (err) {
+    .on('error', function(err) {
       console.error('WEBPACK ERROR', err);
       this.emit('end');
     })
@@ -203,7 +263,7 @@ const scriptsBackend = () => {
       },
       devtool: false
     }))
-    .on('error', function (err) {
+    .on('error', function(err) {
       console.error('WEBPACK ERROR', err);
       this.emit('end');
     })
